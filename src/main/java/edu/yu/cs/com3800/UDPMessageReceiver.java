@@ -58,8 +58,8 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
                 if (sendLeader(received)) {
                     Vote leader = this.peerServer.getCurrentLeader();
                     ElectionNotification notification = new ElectionNotification(leader.getProposedLeaderID(), this.peerServer.getPeerState(), this.peerServer.getServerId(), this.peerServer.getPeerEpoch());
-                    byte[] payload = ZooKeeperLeaderElection.buildMsgPayload(notification);
-                    sendElectionReply(payload, sender);
+                    byte[] msgContent = ZooKeeperLeaderElection.buildMsgContent(notification);
+                    sendElectionReply(msgContent, sender);
                 //end stage 5 logic
                 }
                 else {
@@ -80,10 +80,10 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
         }
     }
 
-    private void sendElectionReply(byte[] payload, InetSocketAddress target) {
-        Message msg = new Message(Message.MessageType.ELECTION, payload, this.myAddress.getHostString(), this.myPort, target.getHostString(), target.getPort());
+    private void sendElectionReply(byte[] msgContent, InetSocketAddress target) {
+        Message msg = new Message(Message.MessageType.ELECTION, msgContent, this.myAddress.getHostString(), this.myPort, target.getHostString(), target.getPort());
         try (DatagramSocket socket = new DatagramSocket()){
-            DatagramPacket sendPacket = new DatagramPacket(payload, payload.length, target);
+            DatagramPacket sendPacket = new DatagramPacket(msgContent, msgContent.length, target);
             socket.send(sendPacket);
             this.logger.fine("Election reply sent:\n" + msg.toString());
         }
