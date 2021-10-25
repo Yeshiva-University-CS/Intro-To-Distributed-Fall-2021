@@ -47,7 +47,7 @@ public class ZooKeeperLeaderElection
                     //IF: see if the sender's vote allows me to reach a conclusion based on the election epoch that I'm in, i.e. it gives the majority to the vote of the FOLLOWING or LEADING peer whose vote I just received.
                         //if so, accept the election winner.
                         //As, once someone declares a winner, we are done. We are not worried about / accounting for misbehaving peers.
-                     /ELSE: if n is from a LATER election epoch
+                     //ELSE: if n is from a LATER election epoch
                         //IF a quorum from that epoch are voting for the same peer as the vote of the FOLLOWING or LEADING peer whose vote I just received.
                            //THEN accept their leader, and update my epoch to be their epoch
                         //ELSE:
