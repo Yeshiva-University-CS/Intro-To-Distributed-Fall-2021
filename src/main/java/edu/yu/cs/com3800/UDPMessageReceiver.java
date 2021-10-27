@@ -18,7 +18,7 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
         this.incomingMessages = incomingMessages;
         this.myAddress = myAddress;
         this.myPort = myPort;
-        this.logger = initializeLogging(UDPMessageReceiver.class.getCanonicalName() + "-on-port-" + this.myPort, true);
+        this.logger = initializeLogging(UDPMessageReceiver.class.getCanonicalName() + "-on-port-" + this.myPort, false);
         this.setDaemon(true);
         this.peerServer = peerServer;
         setName("UDPMessageReceiver-port-" + this.myPort);
@@ -46,24 +46,31 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
                 this.logger.fine("Waiting for packet");
                 DatagramPacket packet = new DatagramPacket(new byte[MAXLENGTH], MAXLENGTH);
                 socket.receive(packet); // Receive packet from a client
-                InetSocketAddress sender = new InetSocketAddress(packet.getAddress(), packet.getPort());
+                Message received = new Message(packet.getData());
+                InetSocketAddress sender = new InetSocketAddress(received.getSenderHost(), received.getSenderPort());
                 //ignore messages from peers marked as dead
                 if (this.peerServer != null && this.peerServer.isPeerDead(sender)) {
                     this.logger.fine("UDP packet received from dead peer: " + sender.toString() + "; ignoring it.");
                     continue;
                 }
-                Message received = new Message(packet.getData());
                 this.logger.fine("UDP packet received:\n" + received.toString());
                 //this is logic required for stage 5...
                 if (sendLeader(received)) {
                     Vote leader = this.peerServer.getCurrentLeader();
-                    ElectionNotification notification = new ElectionNotification(leader.getProposedLeaderID(), this.peerServer.getPeerState(), this.peerServer.getServerId(), this.peerServer.getPeerEpoch());
-                    byte[] msgContent = ZooKeeperLeaderElection.buildMsgContent(notification);
-                    sendElectionReply(msgContent, sender);
+                    //might've entered election between the two previous lines of code, which would make leader null, hence must test
+                    if(leader != null){
+                        ElectionNotification notification = new ElectionNotification(leader.getProposedLeaderID(), this.peerServer.getPeerState(), this.peerServer.getServerId(), this.peerServer.getPeerEpoch());
+                        byte[] msgContent = ZooKeeperLeaderElection.buildMsgContent(notification);
+                        sendElectionReply(msgContent, sender);
+                    }
                 //end stage 5 logic
                 }
                 else {
-                    this.incomingMessages.put(received);
+                    //use interrupt-safe version, i.e. offer
+                    boolean done = false;
+                    while(!done){
+                        done = this.incomingMessages.offer(received);
+                    }
                 }
             }
             catch (SocketTimeoutException ste) {
@@ -83,7 +90,8 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
     private void sendElectionReply(byte[] msgContent, InetSocketAddress target) {
         Message msg = new Message(Message.MessageType.ELECTION, msgContent, this.myAddress.getHostString(), this.myPort, target.getHostString(), target.getPort());
         try (DatagramSocket socket = new DatagramSocket()){
-            DatagramPacket sendPacket = new DatagramPacket(msgContent, msgContent.length, target);
+            byte[] payload = msg.getNetworkPayload();
+            DatagramPacket sendPacket = new DatagramPacket(payload, payload.length, target);
             socket.send(sendPacket);
             this.logger.fine("Election reply sent:\n" + msg.toString());
         }
