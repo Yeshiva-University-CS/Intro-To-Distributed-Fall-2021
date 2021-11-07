@@ -64,8 +64,7 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
                         sendElectionReply(msgContent, sender);
                     }
                 //end stage 5 logic
-                }
-                else {
+                }else if(!this.strayElectionMessage(received)){
                     //use interrupt-safe version, i.e. offer
                     boolean done = false;
                     while(!done){
@@ -112,6 +111,24 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
         }
         ElectionNotification receivedNotification = ZooKeeperLeaderElection.getNotificationFromMessage(received);
         if (receivedNotification.getState() == ZooKeeperPeerServer.ServerState.LOOKING && (this.peerServer.getPeerState() == ZooKeeperPeerServer.ServerState.FOLLOWING || this.peerServer.getPeerState() == ZooKeeperPeerServer.ServerState.LEADING)) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /**
+     * if neither sender nor I am looking, and this is an election message, let it disappear
+     * @param received
+     * @return
+     */
+    private boolean strayElectionMessage(Message received) {
+        if (received.getMessageType() != Message.MessageType.ELECTION) {
+            return false;
+        }
+        ElectionNotification receivedNotification = ZooKeeperLeaderElection.getNotificationFromMessage(received);
+        if (receivedNotification.getState() != ZooKeeperPeerServer.ServerState.LOOKING && this.peerServer.getPeerState() != ZooKeeperPeerServer.ServerState.LOOKING) {
             return true;
         }
         else {
