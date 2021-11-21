@@ -110,6 +110,7 @@ public class UDPMessageReceiver extends Thread implements LoggingServer {
             return false;
         }
         ElectionNotification receivedNotification = ZooKeeperLeaderElection.getNotificationFromMessage(received);
+        ZooKeeperPeerServer.ServerState receivedState = receivedNotification.getState();
         if ((receivedState == ZooKeeperPeerServer.ServerState.LOOKING || receivedState == ZooKeeperPeerServer.ServerState.OBSERVER) && (this.peerServer.getPeerState() == ZooKeeperPeerServer.ServerState.FOLLOWING || this.peerServer.getPeerState() == ZooKeeperPeerServer.ServerState.LEADING)) {
             return true;
         }
